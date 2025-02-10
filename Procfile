@@ -1,0 +1,1 @@
+worker: python spotify_app.py
