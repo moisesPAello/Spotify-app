@@ -7,7 +7,7 @@ sp = spotipy.Spotify(auth_manager=SpotifyOAuth(
     client_id=os.getenv("SPOTIPY_CLIENT_ID"),
     client_secret=os.getenv("SPOTIPY_CLIENT_SECRET"),
     redirect_uri=os.getenv("SPOTIPY_REDIRECT_URI"),
-    scope="playlist-modify-public"
+    scope="playlist-modify-public user-modify-playback-state user-read-playback-state"
 ))
 
 # ID de la playlist donde se agregarán las canciones

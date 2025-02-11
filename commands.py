@@ -1,5 +1,55 @@
+import discord
 from discord.ext import commands
+import os
 from spotify import sp, PLAYLIST_ID, PLAYLIST_NAME, PLAYLIST_URL
+
+@commands.command()
+async def play_playlist(ctx):
+    if not ctx.voice_client:
+        if ctx.author.voice:
+            channel = ctx.author.voice.channel
+            await channel.connect()
+            await ctx.send(f"✅ Conectado al canal de voz: {channel.name}")
+        else:
+            await ctx.send("❌ No estás en un canal de voz.")
+            return
+
+    # Obtener las canciones de la playlist en Spotify
+    playlist_tracks = sp.playlist_tracks(PLAYLIST_ID)
+    tracks = playlist_tracks['items']
+    
+    if not tracks:
+        await ctx.send("❌ La playlist está vacía.")
+        return
+    
+    # Obtener el nombre de la primera canción
+    track = tracks[0]['track']
+    song_name = f"{track['name']} {track['artists'][0]['name']}"
+    await ctx.send(f"🎵 Buscando en YouTube: {song_name}")
+
+    # Buscar en YouTube y obtener la URL
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'noplaylist': True,
+        'quiet': True,
+        'default_search': 'ytsearch',
+        'extractaudio': True,
+        'outtmpl': 'song.mp3'
+    }
+
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(song_name, download=True)
+        if 'entries' in info:
+            video_url = info['entries'][0]['url']
+        else:
+            video_url = info['url']
+    
+    await ctx.send(f"▶️ Reproduciendo: {song_name}")
+
+    # Reproducir el audio en Discord
+    voice_client = ctx.voice_client
+    audio_source = FFmpegPCMAudio("song.mp3")
+    voice_client.play(audio_source)
 
 @commands.command()
 async def addsong(ctx, *, song_name):
