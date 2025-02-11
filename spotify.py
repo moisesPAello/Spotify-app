@@ -13,8 +13,7 @@ sp = spotipy.Spotify(auth_manager=SpotifyOAuth(
 # ID de la playlist donde se agregarán las canciones
 PLAYLIST_ID = os.getenv("PLAYLIST_ID")
 
-# Obtener el nombre y el enlace de la playlist
-playlist = sp.playlist(PLAYLIST_ID)
-PLAYLIST_NAME = playlist['name']
-PLAYLIST_URL = playlist['external_urls']['spotify']
+# Obtener el nombre y el enlace de la playlist desde las variables de entorno
+PLAYLIST_NAME = os.getenv("PLAYLIST_NAME")
+PLAYLIST_URL = os.getenv("PLAYLIST_URL")
 print(f"🎵 Playlist: {PLAYLIST_NAME}")
