@@ -25,5 +25,12 @@ bot.add_command(bot_commands.search_song)
 bot.add_command(bot_commands.playlist_link)
 bot.add_command(bot_commands.playlist_details)
 
+# Obtener el token de Discord desde el archivo .env
+discord_token = os.getenv("DISCORD_BOT_TOKEN")
+
+# Verificar que el token no sea None
+if discord_token is None:
+    raise ValueError("El token de Discord no está configurado correctamente en el archivo .env")
+
 # Ejecutar el bot con tu token de Discord
-bot.run(os.getenv("DISCORD_BOT_TOKEN"))
+bot.run(discord_token)
