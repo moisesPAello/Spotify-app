@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from dotenv import load_dotenv
 import os
-from commands import spotify_commands, voice_commands
+from commands import spotify_commands, voice_commands, general_commands
 
 # Cargar el archivo .env
 load_dotenv()
@@ -25,6 +25,9 @@ bot.add_command(spotify_commands.search_song)
 bot.add_command(spotify_commands.playlist_link)
 bot.add_command(spotify_commands.playlist_details)
 bot.add_command(voice_commands.play_playlist)
+
+# Registrar el comando de ayuda personalizado
+general_commands.setup(bot)
 
 # Ejecutar el bot
 bot.run(os.getenv("DISCORD_BOT_TOKEN"))
