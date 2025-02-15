@@ -3,7 +3,8 @@ from discord.ext import commands
 from dotenv import load_dotenv
 import os
 from spotify import sp, PLAYLIST_ID, PLAYLIST_NAME
-import commands as bot_commands
+import bot_commands
+from help_command import CustomHelpCommand
 
 # Cargar el archivo .env
 load_dotenv()
@@ -11,7 +12,8 @@ load_dotenv()
 # Configurar el bot de Discord con intenciones adicionales
 intents = discord.Intents.default()
 intents.message_content = True
-bot = commands.Bot(command_prefix="!", intents=intents)
+intents.voice_states = True
+bot = commands.Bot(command_prefix="!", intents=intents, help_command=CustomHelpCommand())
 
 @bot.event
 async def on_ready():
@@ -24,6 +26,7 @@ bot.add_command(bot_commands.remove_song)
 bot.add_command(bot_commands.search_song)
 bot.add_command(bot_commands.playlist_link)
 bot.add_command(bot_commands.playlist_details)
+bot.add_command(bot_commands.play_playlist)
 
 # Obtener el token de Discord desde el archivo .env
 discord_token = os.getenv("DISCORD_BOT_TOKEN")
