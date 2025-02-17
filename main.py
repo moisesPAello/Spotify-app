@@ -2,38 +2,32 @@ import discord
 from discord.ext import commands
 from dotenv import load_dotenv
 import os
-from bot_commands import spotify_commands, voice_commands, general_commands
+import asyncio
 
-# Cargar el archivo .env
+# Cargar variables de entorno
 load_dotenv()
 
-# Configurar el bot de Discord
+# Configurar los intents necesarios
 intents = discord.Intents.default()
 intents.message_content = True
 intents.voice_states = True
+
+# Inicializar el bot (sin help_command, éste se configurará en el cog general)
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 @bot.event
 async def on_ready():
     print(f"✅ Bot conectado como {bot.user}")
 
-# Registrar comandos
-bot.add_command(spotify_commands.addsong)
-bot.add_command(spotify_commands.list_songs)
-bot.add_command(spotify_commands.remove_song)
-bot.add_command(spotify_commands.search_song)
-bot.add_command(spotify_commands.playlist_link)
-bot.add_command(spotify_commands.playlist_details)
-bot.add_command(voice_commands.play_playlist)
-bot.add_command(voice_commands.play)
-bot.add_command(voice_commands.skip)
-bot.add_command(voice_commands.pause)
-bot.add_command(voice_commands.stop)
-bot.add_command(voice_commands.queue_list)
-bot.add_command(voice_commands.remove_from_queue)
+async def load_cogs():
+    # Los nombres de extensión deben incluir el nombre del paquete/folder
+    await bot.load_extension("bot_commands.spotify_commands")
+    await bot.load_extension("bot_commands.voice_commands")
+    await bot.load_extension("bot_commands.general_commands")
 
-# Registrar el comando de ayuda personalizado
-general_commands.setup(bot)
+async def main():
+    await load_cogs()
+    await bot.start(os.getenv("DISCORD_BOT_TOKEN"))
 
-# Ejecutar el bot
-bot.run(os.getenv("DISCORD_BOT_TOKEN"))
+if __name__ == "__main__":
+    asyncio.run(main())

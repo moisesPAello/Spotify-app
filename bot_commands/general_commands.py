@@ -7,11 +7,11 @@ class CustomHelpCommand(commands.HelpCommand):
 
     async def send_bot_help(self, mapping):
         embed = discord.Embed(title="Comandos del bot", color=discord.Color.blue())
-        for cog, commands in mapping.items():
-            filtered = await self.filter_commands(commands, sort=True)
+        for cog, commands_list in mapping.items():
+            filtered = await self.filter_commands(commands_list, sort=True)
             command_signatures = [self.get_command_signature(c) for c in filtered]
             if command_signatures:
-                cog_name = cog.qualified_name if cog else "🎥🎥🎥"
+                cog_name = cog.qualified_name if cog else "Sin categoría"
                 embed.add_field(name=cog_name, value="\n".join(command_signatures), inline=False)
         channel = self.get_destination()
         await channel.send(embed=embed)
@@ -57,5 +57,23 @@ class CustomHelpCommand(commands.HelpCommand):
         channel = self.get_destination()
         await channel.send(embed=embed)
 
-def setup(bot):
+class GeneralCommands(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
+
+    @commands.command(name="ping", help="Responde con 'Pong!' y muestra la latencia.")
+    async def ping(self, ctx):
+        latency = round(self.bot.latency * 1000)
+        await ctx.send(f"Pong! 🏓 Latencia: {latency}ms")
+
+    @commands.command(name="info", help="Muestra información sobre el bot.")
+    async def info(self, ctx):
+        embed = discord.Embed(title="Información del Bot", color=discord.Color.blue())
+        embed.add_field(name="Nombre", value=self.bot.user.name, inline=True)
+        embed.add_field(name="ID", value=self.bot.user.id, inline=True)
+        embed.add_field(name="Servidores", value=len(self.bot.guilds), inline=True)
+        await ctx.send(embed=embed)
+
+async def setup(bot):
+    await bot.add_cog(GeneralCommands(bot))
     bot.help_command = CustomHelpCommand()
