@@ -1,3 +1,4 @@
+import random
 import discord
 from discord.ext import commands
 import asyncio
@@ -8,8 +9,8 @@ from spotify import PLAYLIST_ID
 class VoiceCommands(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.queue = []          # Cola de canciones (cada canción es un diccionario de Spotify)
-        self.is_playing = False  # Indica si se está reproduciendo algo
+        self.is_playing = False
+        self.queue = []
         self.current_song = None
 
     async def ensure_voice(self, ctx):
@@ -25,7 +26,7 @@ class VoiceCommands(commands.Cog):
         return True
 
     @commands.command(name="play_playlist", aliases=["pp"], help="Reproduce toda la playlist de Spotify.")
-    async def play_playlist(self, ctx):
+    async def play_playlist_static(self, ctx):
         if not await self.ensure_voice(ctx):
             return
 
@@ -42,26 +43,27 @@ class VoiceCommands(commands.Cog):
         if not self.is_playing:
             await self.play_next_song(ctx)
 
-    @commands.command(name="play", help="Agrega una canción a la cola y comienza a reproducir si no hay nada reproduciéndose.")
-    async def play(self, ctx, *, song_name):
-        if not await self.ensure_voice(ctx):
+    @commands.command(name="skip", help="Salta a la siguiente canción de la cola o a varias si se especifica un número.")
+    async def skip(self, ctx, num_songs: int = 1):
+        # Verificamos que num_songs sea un número positivo
+        if num_songs <= 0:
+            await ctx.send("❌ El número de canciones a saltar debe ser mayor que 0.")
             return
 
-        track = search_song(song_name)
-        if track:
-            self.queue.append(track)
-            await ctx.send(f"🎵 **{track['name']}** añadida a la cola de reproducción.")
-            if not self.is_playing:
-                await self.play_next_song(ctx)
-        else:
-            await ctx.send("❌ No se encontró esa canción en Spotify.")
+        # Verificamos que haya suficientes canciones en la cola
+        if len(self.queue) < num_songs:
+            await ctx.send(f"❌ No hay suficientes canciones en la cola. Solo hay {len(self.queue)} canciones.")
+            return
 
-    @commands.command(name="skip", help="Salta a la siguiente canción de la cola.")
-    async def skip(self, ctx):
-        if self.queue:
-            await self.play_next_song(ctx)
-        else:
-            await ctx.send("❌ No hay más canciones en la cola.")
+        # Saltamos las canciones
+        skipped_songs = [self.queue.pop(0) for _ in range(num_songs)]
+
+        # Enviamos un mensaje confirmando el número de canciones saltadas
+        song_names = [song['name'] for song in skipped_songs]
+        await ctx.send(f"⏭️ Saltando a la siguiente(s) canción(es): {', '.join(song_names)}")
+
+        # Reproducimos la siguiente canción
+        await self.play_next_song(ctx)
 
     @commands.command(name="pause", help="Pausa la reproducción actual.")
     async def pause(self, ctx):
@@ -87,7 +89,7 @@ class VoiceCommands(commands.Cog):
         self.queue.clear()
         await ctx.send("⏹️ La reproducción ha sido detenida y la cola ha sido limpiada.")
 
-    @commands.command(name="queue_list", help="Muestra las canciones en la cola.")
+    @commands.command(name="queue", help="Muestra las canciones en la cola.")
     async def queue_list(self, ctx):
         if self.queue:
             response = "🎵 **Canciones en la cola:**\n"
@@ -97,7 +99,7 @@ class VoiceCommands(commands.Cog):
         else:
             await ctx.send("❌ No hay canciones en la cola.")
 
-    @commands.command(name="remove_from_queue", help="Elimina una canción específica de la cola.")
+    @commands.command(name="queue_remove", help="Elimina una canción específica de la cola.")
     async def remove_from_queue(self, ctx, *, song_name):
         for idx, track in enumerate(self.queue):
             if track["name"].lower() == song_name.lower():
@@ -106,9 +108,78 @@ class VoiceCommands(commands.Cog):
                 return
         await ctx.send(f"❌ No encontré la canción **{song_name}** en la cola.")
 
+    @commands.command(name="clear", help="Limpia la cola de reproducción. Puedes especificar cuántas canciones eliminar a partir de la siguiente.")
+    async def clear(self, ctx, count: int = None):
+        if not self.queue:
+            await ctx.send("❌ La cola de reproducción ya está vacía.")
+            return
+
+        if count is None or count >= len(self.queue):
+            self.queue.clear()
+            await ctx.send("🧹 Toda la cola de reproducción ha sido eliminada.")
+        else:
+            del self.queue[:count]
+            await ctx.send(f"🧹 Se eliminaron las siguientes {count} canciones de la cola.")
+
+    @commands.command(name="shuffle", help="Mezcla aleatoriamente las canciones en la cola de reproducción.")
+    async def shuffle(self, ctx):
+        if len(self.queue) < 2:
+            await ctx.send("❌ No hay suficientes canciones en la cola para mezclar.")
+            return
+
+        random.shuffle(self.queue)
+        await ctx.send("🔀 La cola de reproducción ha sido mezclada.")
+
+    @commands.command(name="playing", aliases=["np"], help="Muestra la canción que se está reproduciendo actualmente.")
+    async def now_playing(self, ctx):
+        if self.current_song:
+            await ctx.send(f"🎶 Ahora suena: **{self.current_song['name']}** - {self.current_song['artists'][0]['name']}")
+        else:
+            await ctx.send("❌ No hay ninguna canción reproduciéndose.")
+
+""""    @commands.command(name="loop", help="Reproduce la canción anterior de forma continua.")
+    async def loop(self, ctx, mode: str = "song"):
+        if mode == "song":
+            self.loop_song = self.current_song
+            await ctx.send(f"🔁 Reproducion en loop: **{self.current_song['name']}** - {self.current_song['artists'][0]['name']}")
+            # Llamar a la función para reproducir la canción nuevamente
+            await self.play_song(ctx, self.loop_song)
+            
+        elif mode == "queue":
+            self.is_queue_looping = True
+            await ctx.send("🔁 Repetición de la cola activada.")
+        else:
+            await ctx.send("❌ Modo no válido. Usa `song` o `queue` para elegir el tipo de loop.")""""
+    """@commands.command(name="history", help="Muestra las últimas canciones reproducidas.")
+    async def history(self, ctx):
+        if not self.history:
+            await ctx.send("📜 No hay historial de canciones reproducidas aún.")
+            return
+
+        response = "🎵 **Historial de canciones:**\n"
+        for idx, song in enumerate(self.history[-10:], 1):  # Muestra las últimas 10
+            response += f"{idx}. {song['name']} - {song['artists'][0]['name']}\n"
+
+        await ctx.send(response)"""
+
+    @commands.command(name="play", help="Agrega una canción a la cola y comienza a reproducir si no hay nada reproduciéndose.")
+    async def play_song(self, ctx, *, song_name):
+        if not await self.ensure_voice(ctx):
+            return
+
+        track = search_song(song_name)
+        if track:
+            self.queue.append(track)
+            await ctx.send(f"🎵 **{track['name']}** añadida a la cola de reproducción.")
+            if not self.is_playing:
+                await self.play_next_song(ctx)
+        else:
+            await ctx.send("❌ No se encontró esa canción en Spotify.")
+
     async def play_next_song(self, ctx):
         if self.queue:
-            self.current_song = self.queue.pop(0)
+            self.prev_song = self.current_song  # Guardamos la canción anterior
+            self.current_song = self.queue.pop(0)  # Establecemos la nueva canción
             self.is_playing = True
             await ctx.send(f"🎶 Reproduciendo: **{self.current_song['name']}** - {self.current_song['artists'][0]['name']}")
 
@@ -132,10 +203,9 @@ class VoiceCommands(commands.Cog):
                         print(f"Error en la cola: {e}")
 
                 voice_client.play(audio_source, after=after_playing)
-            else:
-                await ctx.send("❌ Ya estoy reproduciendo una canción.")
         else:
             self.is_playing = False
+
 
 async def setup(bot):
     await bot.add_cog(VoiceCommands(bot))
