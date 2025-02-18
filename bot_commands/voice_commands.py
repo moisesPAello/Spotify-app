@@ -45,25 +45,33 @@ class VoiceCommands(commands.Cog):
 
     @commands.command(name="skip", help="Salta a la siguiente canción de la cola o a varias si se especifica un número.")
     async def skip(self, ctx, num_songs: int = 1):
-        # Verificamos que num_songs sea un número positivo
+        # Verificar que num_songs sea mayor a 0
         if num_songs <= 0:
             await ctx.send("❌ El número de canciones a saltar debe ser mayor que 0.")
             return
 
-        # Verificamos que haya suficientes canciones en la cola
-        if len(self.queue) < num_songs:
-            await ctx.send(f"❌ No hay suficientes canciones en la cola. Solo hay {len(self.queue)} canciones.")
-            return
+        # Verificar que haya una canción en reproducción
+        if ctx.voice_client and ctx.voice_client.is_playing():
+            self.skipping = True  # Activar la bandera para evitar la ejecución del callback duplicado
+            ctx.voice_client.stop()  # Esto disparará el callback 'after_playing'
+            await ctx.send("⏭️ Saltando la canción actual...")
 
-        # Saltamos las canciones
-        skipped_songs = [self.queue.pop(0) for _ in range(num_songs)]
+            # Si se pide saltar más de 1, quitar canciones adicionales de la cola
+            skipped_songs = []
+            for _ in range(num_songs - 1):
+                if self.queue:
+                    skipped_songs.append(self.queue.pop(0))
+                else:
+                    break
+            if skipped_songs:
+                song_names = ", ".join([song['name'] for song in skipped_songs])
+                await ctx.send(f"⏭️ También se han saltado: {song_names}")
 
-        # Enviamos un mensaje confirmando el número de canciones saltadas
-        song_names = [song['name'] for song in skipped_songs]
-        await ctx.send(f"⏭️ Saltando a la siguiente(s) canción(es): {', '.join(song_names)}")
-
-        # Reproducimos la siguiente canción
-        await self.play_next_song(ctx)
+            # Llamar manualmente a reproducir la siguiente canción
+            await self.play_next_song(ctx)
+            self.skipping = False
+        else:
+            await ctx.send("❌ No hay canción en reproducción para saltar.")
 
     @commands.command(name="pause", help="Pausa la reproducción actual.")
     async def pause(self, ctx):
@@ -137,31 +145,6 @@ class VoiceCommands(commands.Cog):
         else:
             await ctx.send("❌ No hay ninguna canción reproduciéndose.")
 
-""""    @commands.command(name="loop", help="Reproduce la canción anterior de forma continua.")
-    async def loop(self, ctx, mode: str = "song"):
-        if mode == "song":
-            self.loop_song = self.current_song
-            await ctx.send(f"🔁 Reproducion en loop: **{self.current_song['name']}** - {self.current_song['artists'][0]['name']}")
-            # Llamar a la función para reproducir la canción nuevamente
-            await self.play_song(ctx, self.loop_song)
-            
-        elif mode == "queue":
-            self.is_queue_looping = True
-            await ctx.send("🔁 Repetición de la cola activada.")
-        else:
-            await ctx.send("❌ Modo no válido. Usa `song` o `queue` para elegir el tipo de loop.")""""
-    """@commands.command(name="history", help="Muestra las últimas canciones reproducidas.")
-    async def history(self, ctx):
-        if not self.history:
-            await ctx.send("📜 No hay historial de canciones reproducidas aún.")
-            return
-
-        response = "🎵 **Historial de canciones:**\n"
-        for idx, song in enumerate(self.history[-10:], 1):  # Muestra las últimas 10
-            response += f"{idx}. {song['name']} - {song['artists'][0]['name']}\n"
-
-        await ctx.send(response)"""
-
     @commands.command(name="play", help="Agrega una canción a la cola y comienza a reproducir si no hay nada reproduciéndose.")
     async def play_song(self, ctx, *, song_name):
         if not await self.ensure_voice(ctx):
@@ -178,8 +161,7 @@ class VoiceCommands(commands.Cog):
 
     async def play_next_song(self, ctx):
         if self.queue:
-            self.prev_song = self.current_song  # Guardamos la canción anterior
-            self.current_song = self.queue.pop(0)  # Establecemos la nueva canción
+            self.current_song = self.queue.pop(0)
             self.is_playing = True
             await ctx.send(f"🎶 Reproduciendo: **{self.current_song['name']}** - {self.current_song['artists'][0]['name']}")
 
@@ -192,19 +174,19 @@ class VoiceCommands(commands.Cog):
 
             voice_client = ctx.voice_client
             audio_source = create_audio_source(url)
+
             if not voice_client.is_playing():
                 def after_playing(error):
                     if error:
                         print(f"Error al reproducir: {error}")
-                    fut = asyncio.run_coroutine_threadsafe(self.play_next_song(ctx), self.bot.loop)
-                    try:
-                        fut.result()
-                    except Exception as e:
-                        print(f"Error en la cola: {e}")
+                    # Solo llamar a play_next_song si no estamos en skip
+                    if not getattr(self, "skipping", False):
+                        asyncio.run_coroutine_threadsafe(self.play_next_song(ctx), self.bot.loop)
 
                 voice_client.play(audio_source, after=after_playing)
         else:
             self.is_playing = False
+            await ctx.send("✅ No hay más canciones en la cola para reproducir.")
 
 
 async def setup(bot):
